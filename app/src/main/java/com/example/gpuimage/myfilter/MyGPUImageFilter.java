@@ -60,7 +60,7 @@ public class MyGPUImageFilter extends GPUImageFilter{
     protected int mOutputWidth;
     protected int mOutputHeight;
     private boolean mIsInitialized;
-    protected Rotation mRotation = Rotation.ROTATION_90;
+    protected Rotation mRotation = Rotation.NORMAL;
     protected boolean mFlipHorizontal;
     protected boolean mFlipVertical;
 

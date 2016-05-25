@@ -5,19 +5,23 @@ import android.graphics.BitmapFactory;
 import android.opengl.GLES20;
 import android.os.SystemClock;
 import android.renderscript.Matrix4f;
+
 import com.example.gpuimage.R;
 import com.example.gpuimage.utils.MyApplication;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.util.Random;
+
 import jp.co.cyberagent.android.gpuimage.OpenGlUtils;
 import jp.co.cyberagent.android.gpuimage.Rotation;
 
+
 /**
- * Created by zhangsutao on 2016/5/23.
+ * Created by zhangsutao on 2016/5/25.
  */
-public class GPUImageHeartFilter extends MyGPUImageFilter{
+public class GPUGeometryFilter extends MyGPUImageFilter{
     public static final String VERTEX_SHADER = "" +
             "attribute vec4 a_position;\n" +
             "attribute vec4 a_color;\n" +
@@ -64,9 +68,12 @@ public class GPUImageHeartFilter extends MyGPUImageFilter{
 
     private static final int MaxSnowFlakes = 20;
     private int numOfAppear=1;
-
-    // Each snow flake will wait 3 seconds - then turn or change direction.
     private static final float TimeTillTurn = 1.5f;
+    private final int TEXTURE_NUM=3;
+    private int[] texture=new int[MaxSnowFlakes];
+    private int[] mTextureStyle =new int[TEXTURE_NUM];
+    private float angle=0;
+
 
     private Matrix4f g_orthographicMatrix;
 
@@ -76,7 +83,7 @@ public class GPUImageHeartFilter extends MyGPUImageFilter{
     private float g_vel[] = new float[MaxSnowFlakes * 2];
     private float g_col[] = new float[MaxSnowFlakes * 4];
     private float g_size[] = new float[MaxSnowFlakes];
-//    private float g_timeSinceLastTurn[] = new float[MaxSnowFlakes];
+    //    private float g_timeSinceLastTurn[] = new float[MaxSnowFlakes];
     private float interval=0;
 
     private FloatBuffer mGLPosBuffer;
@@ -84,11 +91,11 @@ public class GPUImageHeartFilter extends MyGPUImageFilter{
     private FloatBuffer mGLColBuffer;
     private FloatBuffer mGLSize;
 
-    private int mHeartTextureId = OpenGlUtils.NO_TEXTURE;
+    private int mUsingTextureId = OpenGlUtils.NO_TEXTURE;
 
     private Random mRandom;
 
-    public GPUImageHeartFilter() {
+    public GPUGeometryFilter() {
         g_orthographicMatrix = new Matrix4f();
         g_orthographicMatrix.loadOrtho(-ViewMaxX, +ViewMaxX, -ViewMaxY, +ViewMaxY, -1.0f, 1.0f);
     }
@@ -124,8 +131,7 @@ public class GPUImageHeartFilter extends MyGPUImageFilter{
         for( int i = 0; i < MaxSnowFlakes; ++i )
         {
             //坐标
-            g_pos[i * 2 + 0] = nextFloat( 0-ViewMaxX/4, 0+ViewMaxX/4 );
-            g_pos[i * 2 + 1] = nextFloat( -ViewMaxY+ViewMaxY/5, -ViewMaxY+ ViewMaxY*2/5);
+            getCoordinate(i);
 //            Loger.d("Test", "pos[" + i + "]=(" + g_pos[i * 2 + 0] + ", " + g_pos[i * 2 + 1] + ")");
 
             g_vel[i * 2 + 0] = nextFloat(-0.004f, 0.004f); // Flakes move side to side
@@ -133,14 +139,11 @@ public class GPUImageHeartFilter extends MyGPUImageFilter{
 
             //颜色
             g_col[i * 4 + 0] = 1.0f;
-            g_col[i * 4 + 1] = 0.18823f;
-            g_col[i * 4 + 2] = 0.18823f;
+            g_col[i * 4 + 1] = 1.0f;
+            g_col[i * 4 + 2] = 1.0f;
             g_col[i * 4 + 3] =0.7f; //RandomFloat( 0.6f, 1.0f ); // It seems that Doodle Jump snow does not use alpha.
 
             g_size[i] =5F;
-
-            // It looks strange if the flakes all turn at the same time, so
-            // lets vary their turn times with a random negative value.
 
         }
 
@@ -162,9 +165,16 @@ public class GPUImageHeartFilter extends MyGPUImageFilter{
         mGLColBuffer.put(g_col).position(0);
         mGLSize.put(g_size).position(0);
 
-        if (mHeartTextureId == OpenGlUtils.NO_TEXTURE) {
-            Bitmap bitmap= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.heart);
-            mHeartTextureId =OpenGlUtils.loadTexture(bitmap,OpenGlUtils.NO_TEXTURE,false);
+        if (mUsingTextureId == OpenGlUtils.NO_TEXTURE) {
+            Bitmap bitmap1= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.triangle);
+            Bitmap bitmap2= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.rectangle);
+            Bitmap bitmap3= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.circle);
+            mTextureStyle[0] =OpenGlUtils.loadTexture(bitmap1,OpenGlUtils.NO_TEXTURE,true);
+            mTextureStyle[1] =OpenGlUtils.loadTexture(bitmap2,OpenGlUtils.NO_TEXTURE,true);
+            mTextureStyle[2] =OpenGlUtils.loadTexture(bitmap3,OpenGlUtils.NO_TEXTURE,true);
+            mUsingTextureId= mTextureStyle[0];
+            for(int i=0;i<MaxSnowFlakes;i++)
+                texture[i]= mTextureStyle[mRandom.nextInt(TEXTURE_NUM)];
         }
     }
 
@@ -183,8 +193,10 @@ public class GPUImageHeartFilter extends MyGPUImageFilter{
     private void update() {
         g_nowTime = SystemClock.uptimeMillis();
         float elapsed = (g_nowTime - g_prevTime) / 1000.0f;
-
         interval += elapsed;
+        angle++;
+        if(angle==360)
+            angle=0;
         for( int i = 0; i < numOfAppear; ++i )
         {
 
@@ -193,7 +205,7 @@ public class GPUImageHeartFilter extends MyGPUImageFilter{
 
             if( interval >= TimeTillTurn )
             {
-                 interval=0;
+                interval=0;
                 if(numOfAppear<MaxSnowFlakes)
                     numOfAppear++;
             }
@@ -210,9 +222,9 @@ public class GPUImageHeartFilter extends MyGPUImageFilter{
             if( g_pos[i * 2 + 1] > (ViewMaxY + 0.2f) ||
                     g_pos[i * 2 + 0] < -(ViewMaxX + 0.2f) || g_pos[i * 2 + 0] > (ViewMaxX + 0.2f)||g_size[i]>100f )
             {
-                g_pos[i * 2 + 0] =  nextFloat( 0-ViewMaxX/4, 0+ViewMaxX/4 );
-                g_pos[i * 2 + 1] = nextFloat( -ViewMaxY+ViewMaxY/5, -ViewMaxY+ ViewMaxY*2/5);
+                getCoordinate(i);
                 g_size[i]=5f;
+                texture[i]= mTextureStyle[mRandom.nextInt(TEXTURE_NUM)];
             }
         }
 
@@ -229,6 +241,11 @@ public class GPUImageHeartFilter extends MyGPUImageFilter{
 
         mGLSize.clear();
         mGLSize.put(g_size).position(0);
+    }
+
+    private void getCoordinate(int i) {
+        g_pos[i * 2 + 0] =  nextFloat( 0-ViewMaxX/4, 0+ViewMaxX/4 );
+        g_pos[i * 2 + 1] = nextFloat( -ViewMaxY+ViewMaxY/5, -ViewMaxY+ ViewMaxY*2/5);
     }
 
     private void draw() {
@@ -254,7 +271,7 @@ public class GPUImageHeartFilter extends MyGPUImageFilter{
 //        setUniformMatrix4f(g_u_mvpMatrixHandle, g_orthographicMatrix.getArray());
 //        glUniformMatrix4fv( g_u_mvpMatrixHandle, 1, GL_FALSE, g_orthographicMatrix.m );
 
-        GLES20.glUniform1f(g_u_rotationHandle, (float) Math.toRadians(mergeRotaion()));
+        GLES20.glUniform1f(g_u_rotationHandle, (float) Math.toRadians(angle));
 
         GLES20.glVertexAttribPointer(g_a_positionHandle, 2, GLES20.GL_FLOAT, false, 0, mGLPosBuffer);
         GLES20.glEnableVertexAttribArray(g_a_positionHandle);
@@ -269,14 +286,20 @@ public class GPUImageHeartFilter extends MyGPUImageFilter{
         GLES20.glEnable(GLES20.GL_BLEND);
         GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE);
 
-        if (mHeartTextureId != OpenGlUtils.NO_TEXTURE) {
+        if (mUsingTextureId != OpenGlUtils.NO_TEXTURE) {
             GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
-            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mHeartTextureId);
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mUsingTextureId);
             GLES20.glUniform1i(g_u_texture0Handle, 0);
         }
-
-        GLES20.glDrawArrays(GLES20.GL_POINTS, 0, numOfAppear);
-
+        for(int i=0;i<numOfAppear;i++){
+            if(mUsingTextureId!=texture[i]){
+                mUsingTextureId=texture[i];
+                GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+                GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mUsingTextureId);
+                GLES20.glUniform1i(g_u_texture0Handle, 0);
+            }
+            GLES20.glDrawArrays(GLES20.GL_POINTS,i,1);
+        }
         GLES20.glDisableVertexAttribArray(g_a_positionHandle);
         GLES20.glDisableVertexAttribArray(g_a_colorHandle);
         GLES20.glDisableVertexAttribArray(g_a_pointSizeHandle);
@@ -298,9 +321,9 @@ public class GPUImageHeartFilter extends MyGPUImageFilter{
     public void onDestroy() {
         super.onDestroy();
         GLES20.glDeleteTextures(1, new int[]{
-                mHeartTextureId
+                mUsingTextureId
         }, 0);
-        mHeartTextureId = OpenGlUtils.NO_TEXTURE;
+        mUsingTextureId = OpenGlUtils.NO_TEXTURE;
         GLES20.glDeleteProgram(mSnowfallProgramId);
         mSnowfallProgramId = 0;
     }
