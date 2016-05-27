@@ -23,9 +23,11 @@ import android.graphics.BitmapFactory;
 import android.graphics.PointF;
 import android.opengl.Matrix;
 
-import com.example.gpuimage.myfilter.GPUGeometryFilter;
+import com.example.gpuimage.myfilter.GPUFiveStarFilter;
 import com.example.gpuimage.myfilter.GPUImageHeartFilter;
 import com.example.gpuimage.myfilter.GPUImageStarFilter;
+import com.example.gpuimage.myfilter.GPUSpiralFilter;
+import com.example.gpuimage.myfilter.GPUWuyaFilter;
 import com.example.gpuimage.myfilter.MyGPUImageSnowFallFilter;
 
 import jp.co.cyberagent.android.gpuimage.*;
@@ -37,9 +39,11 @@ public class GPUImageFilterTools {
     public static void showDialog(final Context context,
             final OnGpuImageFilterChosenListener listener) {
         final FilterList filters = new FilterList();
-        filters.addFilter("geometry",FilterType.GEOMETRY);
-        filters.addFilter("star",FilterType.STAR);
-        filters.addFilter("heart",FilterType.HEART);
+        filters.addFilter("螺旋",FilterType.SPIRAL);
+        filters.addFilter("乌鸦",FilterType.WUYA);
+        filters.addFilter("五角星",FilterType.FIVESTAR);
+        filters.addFilter("星空",FilterType.STAR);
+        filters.addFilter("桃心",FilterType.HEART);
         filters.addFilter("snow", FilterType.SNOW);
         filters.addFilter("Contrast", FilterType.CONTRAST);
         filters.addFilter("Invert", FilterType.INVERT);
@@ -138,8 +142,12 @@ public class GPUImageFilterTools {
 
     private static GPUImageFilter createFilterForType(final Context context, final FilterType type) {
         switch (type) {
-            case GEOMETRY:
-                return new GPUGeometryFilter();
+            case SPIRAL:
+                return new GPUSpiralFilter();
+            case WUYA:
+                return new GPUWuyaFilter();
+            case FIVESTAR:
+                return new GPUFiveStarFilter();
             case STAR:
                 return new GPUImageStarFilter();
             case HEART:
@@ -347,7 +355,7 @@ public class GPUImageFilterTools {
         BLEND_DISSOLVE, BLEND_EXCLUSION, BLEND_SOURCE_OVER, BLEND_HARD_LIGHT, BLEND_LIGHTEN, BLEND_ADD, BLEND_DIVIDE, BLEND_MULTIPLY, BLEND_OVERLAY, BLEND_SCREEN, BLEND_ALPHA,
         BLEND_COLOR, BLEND_HUE, BLEND_SATURATION, BLEND_LUMINOSITY, BLEND_LINEAR_BURN, BLEND_SOFT_LIGHT, BLEND_SUBTRACT, BLEND_CHROMA_KEY, BLEND_NORMAL, LOOKUP_AMATORKA,
         GAUSSIAN_BLUR, CROSSHATCH, BOX_BLUR, CGA_COLORSPACE, DILATION, KUWAHARA, RGB_DILATION, SKETCH, TOON, SMOOTH_TOON, BULGE_DISTORTION, GLASS_SPHERE, HAZE, LAPLACIAN, NON_MAXIMUM_SUPPRESSION,
-        SPHERE_REFRACTION, SWIRL, WEAK_PIXEL_INCLUSION, FALSE_COLOR, COLOR_BALANCE, LEVELS_FILTER_MIN, BILATERAL_BLUR, HALFTONE, GEOMETRY, TRANSFORM2D
+        SPHERE_REFRACTION, SWIRL, WEAK_PIXEL_INCLUSION, FALSE_COLOR, COLOR_BALANCE, LEVELS_FILTER_MIN, BILATERAL_BLUR, HALFTONE, FIVESTAR, WUYA, SPIRAL, TRANSFORM2D
     }
 
     private static class FilterList {

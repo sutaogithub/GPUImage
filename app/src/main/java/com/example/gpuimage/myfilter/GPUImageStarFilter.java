@@ -65,13 +65,14 @@ public class GPUImageStarFilter extends MyGPUImageFilter{
     private static final float ViewMaxX = 2;
     private static final float ViewMaxY = 3;
 
-    private static final int MaxSnowFlakes = 160;
+    private static final int MaxStarNum = 180;
     private float RANGE_X_STAR=1f,RANGE_Y_STAR=1.5F;
-    private final float  MOVE_SPEED= (float) (Math.PI/2000);
+    private final float  MOVE_SPEED= (float) (Math.PI/3000);
     private final float ALPHA_CHANGE_SPEED=0.008F;
-    private final float SIZE_CHANGE_SPEED=0.001F;
+    private final float SIZE_CHANGE_SPEED=0.1F;
     private final float RANDOM_FACTOR=-10F;
     private final int TEXTURE_NUM=2;
+    private boolean[] isClockWise=new boolean[MaxStarNum];
 
 
     // Each snow flake will wait 3 seconds - then turn or change direction.
@@ -80,15 +81,14 @@ public class GPUImageStarFilter extends MyGPUImageFilter{
     private Matrix4f g_orthographicMatrix;
 
     private long g_nowTime, g_prevTime;
-    private int[] texture=new int[MaxSnowFlakes];
-    private float g_pos[] = new float[MaxSnowFlakes * 2];
-    private float g_vel[] = new float[MaxSnowFlakes * 2];
-    private float g_col[] = new float[MaxSnowFlakes * 4];
-    private float g_size[] = new float[MaxSnowFlakes];
-    private float g_ratio[] = new float[MaxSnowFlakes];
-    //    private float g_timeSinceLastTurn[] = new float[MaxSnowFlakes];
+    private int[] texture=new int[MaxStarNum];
+    private float g_pos[] = new float[MaxStarNum * 2];
+
+    private float g_col[] = new float[MaxStarNum * 4];
+    private float g_size[] = new float[MaxStarNum];
+    private float g_ratio[] = new float[MaxStarNum];
+    //    private float g_timeSinceLastTurn[] = new float[MaxStarNum];
     private FloatBuffer mGLPosBuffer;
-    private FloatBuffer mGLVelBuffer;
     private FloatBuffer mGLColBuffer;
     private FloatBuffer mGLSize;
 
@@ -98,7 +98,7 @@ public class GPUImageStarFilter extends MyGPUImageFilter{
 
 
 
-    private float g_timeSinceLastTurn[] = new float[MaxSnowFlakes];
+    private float g_timeSinceLastTurn[] = new float[MaxStarNum];
 
     public GPUImageStarFilter() {
         g_orthographicMatrix = new Matrix4f();
@@ -124,7 +124,7 @@ public class GPUImageStarFilter extends MyGPUImageFilter{
 
         g_nowTime = SystemClock.uptimeMillis();
         g_prevTime = g_nowTime;
-        for( int i = 0; i < MaxSnowFlakes; ++i )
+        for( int i = 0; i < MaxStarNum; ++i )
         {
             //坐标
             getCoordinate(i);
@@ -133,17 +133,16 @@ public class GPUImageStarFilter extends MyGPUImageFilter{
             g_col[i * 4 + 0] = 1.0f;
             g_col[i * 4 + 1] = 1.0f;
             g_col[i * 4 + 2] = 1.0f;
-            g_col[i * 4 + 3] = nextFloat(0.5F,1.0f); //RandomFloat( 0.6f, 1.0f ); // It seems that Doodle Jump snow does not use alpha.
+            g_col[i * 4 + 3] = nextFloat(0.8F,1.0f); //RandomFloat( 0.6f, 1.0f ); // It seems that Doodle Jump snow does not use alpha.
             g_size[i] =nextFloat(15f,80f);
             g_timeSinceLastTurn[i] = nextFloat(RANDOM_FACTOR, 0.0f);
+            isClockWise[i]=mRandom.nextBoolean();
         }
 
         mGLPosBuffer = ByteBuffer.allocateDirect(g_pos.length * 4)
                 .order(ByteOrder.nativeOrder())
                 .asFloatBuffer();
-        mGLVelBuffer = ByteBuffer.allocateDirect(g_vel.length * 4)
-                .order(ByteOrder.nativeOrder())
-                .asFloatBuffer();
+
         mGLColBuffer = ByteBuffer.allocateDirect(g_col.length * 4)
                 .order(ByteOrder.nativeOrder())
                 .asFloatBuffer();
@@ -152,7 +151,6 @@ public class GPUImageStarFilter extends MyGPUImageFilter{
                 .asFloatBuffer();
 
         mGLPosBuffer.put(g_pos).position(0);
-        mGLVelBuffer.put(g_vel).position(0);
         mGLColBuffer.put(g_col).position(0);
         mGLSize.put(g_size).position(0);
 
@@ -162,7 +160,7 @@ public class GPUImageStarFilter extends MyGPUImageFilter{
             mTexttureStyle[0] =OpenGlUtils.loadTexture(bitmap1,OpenGlUtils.NO_TEXTURE,false);
             mTexttureStyle[1] =OpenGlUtils.loadTexture(bitmap2,OpenGlUtils.NO_TEXTURE,false);
             mUsingStarTextureId= mTexttureStyle[0];
-            for( int i = 0; i < MaxSnowFlakes; ++i ){
+            for( int i = 0; i < MaxStarNum; ++i ){
                 texture[i]= mTexttureStyle[mRandom.nextInt(TEXTURE_NUM)];
             }
         }
@@ -198,7 +196,7 @@ public class GPUImageStarFilter extends MyGPUImageFilter{
         g_nowTime = SystemClock.uptimeMillis();
         float elapsed = (g_nowTime - g_prevTime) / 1000.0f;
 
-        for( int i = 0; i < MaxSnowFlakes; ++i )
+        for( int i = 0; i < MaxStarNum; ++i )
         {
             g_timeSinceLastTurn[i] += elapsed;
             if( g_timeSinceLastTurn[i] >= 0 )
@@ -206,18 +204,6 @@ public class GPUImageStarFilter extends MyGPUImageFilter{
                 //alpha
                 g_col[i * 4 + 3]-=ALPHA_CHANGE_SPEED;
             }
-            //优化前
-//            double angle=Math.abs(Math.asin(g_pos[i * 2 + 1]/ g_ratio[i]));
-//            if((g_pos[i * 2 + 0]<=0&& g_pos[i * 2 + 1]<=0)||(g_pos[i * 2 + 0]>=0&& g_pos[i * 2 + 1]>=0))
-//                angle+=move_speed;
-//            else
-//                angle-=move_speed;
-//            float new_x= (float) (g_ratio[i]*Math.cos(angle));
-//            float new_y= (float) (g_ratio[i]*Math.sin(angle));
-//            if( g_pos[i * 2 + 0]<0)
-//                new_x=-new_x;
-//            if(g_pos[i * 2 + 1]<0)
-//                new_y=-new_y;
 
             //优化后
             double angle=Math.asin(g_pos[i * 2 + 1]/ g_ratio[i]);
@@ -226,7 +212,10 @@ public class GPUImageStarFilter extends MyGPUImageFilter{
                     angle=-Math.PI-angle;
                 else
                     angle=Math.PI-angle;
-            angle+=MOVE_SPEED;
+            if(isClockWise[i])
+                angle+=MOVE_SPEED;
+            else
+                angle-=MOVE_SPEED;
             float new_x= (float) (g_ratio[i]*Math.cos(angle));
             float new_y= (float) (g_ratio[i]*Math.sin(angle));
             g_pos[i * 2 + 0] =new_x;
@@ -249,9 +238,6 @@ public class GPUImageStarFilter extends MyGPUImageFilter{
 
         mGLPosBuffer.clear();
         mGLPosBuffer.put(g_pos).position(0);
-
-        mGLVelBuffer.clear();
-        mGLVelBuffer.put(g_vel).position(0);
 
         mGLColBuffer.clear();
         mGLColBuffer.put(g_col).position(0);
@@ -283,7 +269,7 @@ public class GPUImageStarFilter extends MyGPUImageFilter{
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mUsingStarTextureId);
             GLES20.glUniform1i(g_u_texture0Handle, 0);
         }
-        for(int i=0;i<MaxSnowFlakes;i++){
+        for(int i=0;i< MaxStarNum;i++){
             if(mUsingStarTextureId!=texture[i]){
                 mUsingStarTextureId=texture[i];
                 GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
