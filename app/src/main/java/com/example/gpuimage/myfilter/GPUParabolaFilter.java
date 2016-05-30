@@ -18,11 +18,9 @@ import jp.co.cyberagent.android.gpuimage.OpenGlUtils;
 import jp.co.cyberagent.android.gpuimage.Rotation;
 
 /**
- * Created by zhangsutao on 2016/5/27.
+ * Created by zhangsutao on 2016/5/30.
  */
-public class GPUSpiralFilter extends MyGPUImageFilter{
-
-
+public class GPUParabolaFilter extends MyGPUImageFilter{
     public static final String VERTEX_SHADER = "" +
             "attribute vec4 a_position;\n" +
             "attribute vec4 a_color;\n" +
@@ -51,7 +49,7 @@ public class GPUSpiralFilter extends MyGPUImageFilter{
             "    float mid = 0.5;\n" +
             "    vec2 rotated = vec2(cos(v_Rotation) * (gl_PointCoord.x - mid) + sin(v_Rotation) * (gl_PointCoord.y - mid) + mid,\n" +
             "                        cos(v_Rotation) * (gl_PointCoord.y - mid) - sin(v_Rotation) * (gl_PointCoord.x - mid) + mid);\n" +
-            "    gl_FragColor = v_color * texture2D( u_texture0, rotated);\n" +
+            "    gl_FragColor = v_color * texture2D( u_texture0, gl_PointCoord);\n" +
             "}\n";
 
     private int mSnowfallProgramId;
@@ -67,38 +65,31 @@ public class GPUSpiralFilter extends MyGPUImageFilter{
     private static final float ViewMaxX = 2;
     private static final float ViewMaxY = 3;
 
-    private static final int MaxStarNum = 120;
-    private final float SIZE_CHANGE_SPEED=0f;
-    private final float RANDOM_FACTOR=-10F;
-    private final int TEXTURE_NUM=1;
-    private float[] angle=new float[MaxStarNum];
-    private Matrix4f g_orthographicMatrix;
-    private final float APPEAR_INTERVAL=0.18f;
-    private float interval=0;
-    private int numOfAppear=1;
-    private final float SPEED=1.2f;
+    private static final int MaxSnowFlakes =100;
 
+
+    private Matrix4f g_orthographicMatrix;
 
     private long g_nowTime, g_prevTime;
-    private int[] texture=new int[MaxStarNum];
-    private float g_pos[] = new float[MaxStarNum * 2];
 
-    private float g_col[] = new float[MaxStarNum * 4];
-    private float g_size[] = new float[MaxStarNum];
-    private float g_ratio[] = new float[MaxStarNum];
+    private float g_pos[] = new float[MaxSnowFlakes * 2];
+    private float change_v[] = new float[MaxSnowFlakes * 2];
+    private float g_vel[] = new float[MaxSnowFlakes * 2];
+    private float g_col[] = new float[MaxSnowFlakes * 4];
+    private float g_size[] = new float[MaxSnowFlakes];
+    private boolean[] shouldAppear=new boolean[MaxSnowFlakes];
+    private int numOfDisAppear=0;
+
     private FloatBuffer mGLPosBuffer;
+    private FloatBuffer mGLVelBuffer;
     private FloatBuffer mGLColBuffer;
     private FloatBuffer mGLSize;
 
-    private int mUsingStarTextureId = OpenGlUtils.NO_TEXTURE;
-    private int[] mTexttureStyle =new int[2];
+    private int mSnowtTextureId = OpenGlUtils.NO_TEXTURE;
+
     private Random mRandom;
 
-
-
-
-
-    public GPUSpiralFilter() {
+    public GPUParabolaFilter() {
         g_orthographicMatrix = new Matrix4f();
         g_orthographicMatrix.loadOrtho(-ViewMaxX, +ViewMaxX, -ViewMaxY, +ViewMaxY, -1.0f, 1.0f);
     }
@@ -110,6 +101,7 @@ public class GPUSpiralFilter extends MyGPUImageFilter{
         mRandom = new Random();
 
         mSnowfallProgramId = OpenGlUtils.loadProgram(VERTEX_SHADER, FRAGMENT_SHADER);
+
         // Vertex shader variables
         g_a_positionHandle = GLES20.glGetAttribLocation(mSnowfallProgramId, "a_position");
         g_a_colorHandle = GLES20.glGetAttribLocation(mSnowfallProgramId, "a_color");
@@ -122,24 +114,37 @@ public class GPUSpiralFilter extends MyGPUImageFilter{
 
         g_nowTime = SystemClock.uptimeMillis();
         g_prevTime = g_nowTime;
-        for( int i = 0; i < MaxStarNum; ++i )
+        for( int i = 0; i < MaxSnowFlakes; ++i )
         {
             //坐标
             getCoordinate(i);
-            g_ratio[i]= (float) Math.sqrt(g_pos[i * 2 + 0]* g_pos[i * 2 + 0]+ g_pos[i * 2 + 1]* g_pos[i * 2 + 1]);
+            if(i<MaxSnowFlakes/2){
+                change_v[i * 2 + 0] = nextFloat(0f, 0.012f); // Flakes move side to side
+                change_v[i * 2 + 1] = nextFloat(-0.00035f, -0.0001f); // Flakes fall down
+            }else {
+                change_v[i * 2 + 0] = -nextFloat(0f, 0.012f); // Flakes move side to side
+                change_v[i * 2 + 1] = nextFloat(-0.00035f, -0.0001f); // Flakes fall down
+            }
+
+            getStartSpeed(i);
+
             //颜色
             g_col[i * 4 + 0] = 1.0f;
-            g_col[i * 4 + 1] = 0f;
-            g_col[i * 4 + 2] = 0f;
-            g_col[i * 4 + 3] = 1f; //RandomFloat( 0.6f, 1.0f ); // It seems that Doodle Jump snow does not use alpha.
-            g_size[i] =50f;
+            g_col[i * 4 + 1] = 1.0f;
+            g_col[i * 4 + 2] = 1.0f;
+            g_col[i * 4 + 3] = 1.0f; //RandomFloat( 0.6f, 1.0f ); // It seems that Doodle Jump snow does not use alpha.
 
+            g_size[i] =150f;
+
+            shouldAppear[i]=true;
         }
 
         mGLPosBuffer = ByteBuffer.allocateDirect(g_pos.length * 4)
                 .order(ByteOrder.nativeOrder())
                 .asFloatBuffer();
-
+        mGLVelBuffer = ByteBuffer.allocateDirect(change_v.length * 4)
+                .order(ByteOrder.nativeOrder())
+                .asFloatBuffer();
         mGLColBuffer = ByteBuffer.allocateDirect(g_col.length * 4)
                 .order(ByteOrder.nativeOrder())
                 .asFloatBuffer();
@@ -148,23 +153,36 @@ public class GPUSpiralFilter extends MyGPUImageFilter{
                 .asFloatBuffer();
 
         mGLPosBuffer.put(g_pos).position(0);
+        mGLVelBuffer.put(change_v).position(0);
         mGLColBuffer.put(g_col).position(0);
         mGLSize.put(g_size).position(0);
 
-        if (mUsingStarTextureId == OpenGlUtils.NO_TEXTURE) {
-            Bitmap bitmap1= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.heart);
-            mTexttureStyle[0] =OpenGlUtils.loadTexture(bitmap1,OpenGlUtils.NO_TEXTURE,false);
-            mUsingStarTextureId= mTexttureStyle[0];
+        if (mSnowtTextureId == OpenGlUtils.NO_TEXTURE) {
+            Bitmap bitmap= BitmapFactory.decodeResource(MyApplication.getResource(),R.raw.star1);
+            mSnowtTextureId=OpenGlUtils.loadTexture(bitmap,OpenGlUtils.NO_TEXTURE,false);
         }
     }
 
+    private void getStartSpeed(int i) {
+        if(i<MaxSnowFlakes/2){
+            g_vel[i*2]=nextFloat(0,0.012f);
+            g_vel[i*2+1]=nextFloat(0.005f,0.02f);
+        }else {
+            g_vel[i*2]=-nextFloat(0,0.012f);
+            g_vel[i*2+1]=nextFloat(0.005f,0.02f);
+        }
+
+    }
+
     private void getCoordinate(int i) {
-//        float r= (float) (0.1*(1-Math.sin(angle[i])));
-//        g_pos[i*2]= (float) (r*Math.cos(angle[i]));
-//        g_pos[i*2+1]= (float) (r*Math.sin(angle[i]));
-        double r=0.1*Math.exp(0.1*angle[i]);
-        g_pos[i*2]= (float) (r*Math.cos(angle[i]));
-        g_pos[i*2+1]= (float) (r*Math.sin(angle[i]));
+        if(i<MaxSnowFlakes/2){
+            g_pos[i * 2 + 0] = -ViewMaxX*3/4;
+            g_pos[i * 2 + 1] = ViewMaxY/1.6f;
+        }else {
+            g_pos[i * 2 + 0] = ViewMaxX*3/4;
+            g_pos[i * 2 + 1] = ViewMaxY/1.6f;
+        }
+
     }
 
     @Override
@@ -182,30 +200,27 @@ public class GPUSpiralFilter extends MyGPUImageFilter{
     private void update() {
         g_nowTime = SystemClock.uptimeMillis();
         float elapsed = (g_nowTime - g_prevTime) / 1000.0f;
-        interval+=elapsed;
-        if(interval>=APPEAR_INTERVAL&&numOfAppear<MaxStarNum)
-        {
-            numOfAppear++;
-            interval=0;
-        }
-        for( int i = 0; i < numOfAppear; ++i )
-        {
 
-
-            angle[i]+=Math.toRadians(SPEED);
-            double r=0.1*Math.exp(0.1*angle[i]);
-            g_pos[i*2]= (float) (r*Math.cos(angle[i]));
-            g_pos[i*2+1]= (float) (r*Math.sin(angle[i]));
-            g_size[i]-=SIZE_CHANGE_SPEED;
-            if(g_pos[i * 2 + 1] < -(ViewMaxY + 0.2f) ||
-                    g_pos[i * 2 + 0] < -(ViewMaxX + 0.2f) || g_pos[i * 2 + 0] > (ViewMaxX + 0.2f)||g_size[i]<=1f||g_col[i * 4 + 3]<=0f )
+        for( int i = 0; i < MaxSnowFlakes; ++i )
+        {
+//            g_vel[i*2]+=change_v[i*2];
+            if(shouldAppear[i]){
+                g_vel[i*2+1]+=change_v[i*2+1];
+                g_pos[i * 2 + 0] +=g_vel[i*2]; // Side to side
+                g_pos[i * 2 + 1] += g_vel[i*2+1]; // Gravity
+            }
+            if( g_pos[i * 2 + 1] < -(ViewMaxY + 0.2f) ||
+                    g_pos[i * 2 + 0] < -(ViewMaxX + 0.2f) || g_pos[i * 2 + 0] > (ViewMaxX + 0.2f) )
             {
-                angle[i]=0;
+                shouldAppear[i]=false;
+                numOfDisAppear++;
+                if(numOfDisAppear>MaxSnowFlakes*3/4){
+                    for(int j=0;j<MaxSnowFlakes;++j)
+                        shouldAppear[j]=true;
+                    numOfDisAppear=0;
+                }
                 getCoordinate(i);
-                g_ratio[i]= (float) Math.sqrt(g_pos[i * 2 + 0]* g_pos[i * 2 + 0]+ g_pos[i * 2 + 1]* g_pos[i * 2 + 1]);
-                g_size[i] =50f;
-                g_col[i * 4 + 3]=1f;
-                texture[i]= mTexttureStyle[mRandom.nextInt(TEXTURE_NUM)];
+                getStartSpeed(i);
             }
         }
 
@@ -213,6 +228,9 @@ public class GPUSpiralFilter extends MyGPUImageFilter{
 
         mGLPosBuffer.clear();
         mGLPosBuffer.put(g_pos).position(0);
+
+        mGLVelBuffer.clear();
+        mGLVelBuffer.put(change_v).position(0);
 
         mGLColBuffer.clear();
         mGLColBuffer.put(g_col).position(0);
@@ -239,13 +257,15 @@ public class GPUSpiralFilter extends MyGPUImageFilter{
         GLES20.glEnable(GLES20.GL_BLEND);
         GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE);
 
-        if (mUsingStarTextureId != OpenGlUtils.NO_TEXTURE) {
+        if (mSnowtTextureId != OpenGlUtils.NO_TEXTURE) {
             GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
-            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mUsingStarTextureId);
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mSnowtTextureId);
             GLES20.glUniform1i(g_u_texture0Handle, 0);
         }
 
-        GLES20.glDrawArrays(GLES20.GL_POINTS,0,numOfAppear);
+        for(int i=0;i<MaxSnowFlakes;i++)
+            if(shouldAppear[i])
+                GLES20.glDrawArrays(GLES20.GL_POINTS, i, 1);
 
         GLES20.glDisableVertexAttribArray(g_a_positionHandle);
         GLES20.glDisableVertexAttribArray(g_a_colorHandle);
@@ -268,9 +288,9 @@ public class GPUSpiralFilter extends MyGPUImageFilter{
     public void onDestroy() {
         super.onDestroy();
         GLES20.glDeleteTextures(1, new int[]{
-                mUsingStarTextureId
+                mSnowtTextureId
         }, 0);
-        mUsingStarTextureId = OpenGlUtils.NO_TEXTURE;
+        mSnowtTextureId = OpenGlUtils.NO_TEXTURE;
         GLES20.glDeleteProgram(mSnowfallProgramId);
         mSnowfallProgramId = 0;
     }
@@ -336,6 +356,4 @@ public class GPUSpiralFilter extends MyGPUImageFilter{
     public int mergeRotaion() {
         return mRotation.asInt() + (mFlipVertical ? 180 : 0);
     }
-
-
 }

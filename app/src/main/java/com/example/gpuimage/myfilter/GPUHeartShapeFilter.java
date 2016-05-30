@@ -20,7 +20,7 @@ import jp.co.cyberagent.android.gpuimage.Rotation;
 /**
  * Created by zhangsutao on 2016/5/27.
  */
-public class GPUSpiralFilter extends MyGPUImageFilter{
+public class GPUHeartShapeFilter extends MyGPUImageFilter{
 
 
     public static final String VERTEX_SHADER = "" +
@@ -67,7 +67,9 @@ public class GPUSpiralFilter extends MyGPUImageFilter{
     private static final float ViewMaxX = 2;
     private static final float ViewMaxY = 3;
 
-    private static final int MaxStarNum = 120;
+    private static final int MaxStarNum = 27;
+    private float RANGE_X_STAR=1f,RANGE_Y_STAR=1.5F;
+    private final float ALPHA_CHANGE_SPEED=0f;
     private final float SIZE_CHANGE_SPEED=0f;
     private final float RANDOM_FACTOR=-10F;
     private final int TEXTURE_NUM=1;
@@ -98,7 +100,7 @@ public class GPUSpiralFilter extends MyGPUImageFilter{
 
 
 
-    public GPUSpiralFilter() {
+    public GPUHeartShapeFilter() {
         g_orthographicMatrix = new Matrix4f();
         g_orthographicMatrix.loadOrtho(-ViewMaxX, +ViewMaxX, -ViewMaxY, +ViewMaxY, -1.0f, 1.0f);
     }
@@ -162,9 +164,9 @@ public class GPUSpiralFilter extends MyGPUImageFilter{
 //        float r= (float) (0.1*(1-Math.sin(angle[i])));
 //        g_pos[i*2]= (float) (r*Math.cos(angle[i]));
 //        g_pos[i*2+1]= (float) (r*Math.sin(angle[i]));
-        double r=0.1*Math.exp(0.1*angle[i]);
-        g_pos[i*2]= (float) (r*Math.cos(angle[i]));
-        g_pos[i*2+1]= (float) (r*Math.sin(angle[i]));
+        double sin=Math.sin(angle[i]);
+        g_pos[i*2]= (float) (16*sin*sin*sin)/10;
+        g_pos[i*2+1]= (float) (13*Math.cos(angle[i])-5*Math.cos(2*angle[i])-2*Math.cos(3*angle[i])-Math.cos(4*angle[i]))/8+0.5f;
     }
 
     @Override
@@ -193,12 +195,11 @@ public class GPUSpiralFilter extends MyGPUImageFilter{
 
 
             angle[i]+=Math.toRadians(SPEED);
-            double r=0.1*Math.exp(0.1*angle[i]);
-            g_pos[i*2]= (float) (r*Math.cos(angle[i]));
-            g_pos[i*2+1]= (float) (r*Math.sin(angle[i]));
+            double sin=Math.sin(angle[i]);
+            g_pos[i*2]= (float) (16*sin*sin*sin)/8.5f;
+            g_pos[i*2+1]= (float) (13*Math.cos(angle[i])-5*Math.cos(2*angle[i])-2*Math.cos(3*angle[i])-Math.cos(4*angle[i]))/8+0.5f;
             g_size[i]-=SIZE_CHANGE_SPEED;
-            if(g_pos[i * 2 + 1] < -(ViewMaxY + 0.2f) ||
-                    g_pos[i * 2 + 0] < -(ViewMaxX + 0.2f) || g_pos[i * 2 + 0] > (ViewMaxX + 0.2f)||g_size[i]<=1f||g_col[i * 4 + 3]<=0f )
+            if(g_size[i]<=1f||g_col[i * 4 + 3]<=0f )
             {
                 angle[i]=0;
                 getCoordinate(i);

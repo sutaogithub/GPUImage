@@ -20,7 +20,7 @@ import jp.co.cyberagent.android.gpuimage.Rotation;
 /**
  * Created by zhangsutao on 2016/5/27.
  */
-public class GPUSpiralFilter extends MyGPUImageFilter{
+public class GPUOvalFilter extends MyGPUImageFilter{
 
 
     public static final String VERTEX_SHADER = "" +
@@ -63,11 +63,10 @@ public class GPUSpiralFilter extends MyGPUImageFilter{
 
     protected int g_u_texture0Handle;
 
-    // The Game's view size or area is 2 units wide and 3 units high.
     private static final float ViewMaxX = 2;
     private static final float ViewMaxY = 3;
 
-    private static final int MaxStarNum = 120;
+    private static final int MaxStarNum = 32;
     private final float SIZE_CHANGE_SPEED=0f;
     private final float RANDOM_FACTOR=-10F;
     private final int TEXTURE_NUM=1;
@@ -98,7 +97,7 @@ public class GPUSpiralFilter extends MyGPUImageFilter{
 
 
 
-    public GPUSpiralFilter() {
+    public GPUOvalFilter() {
         g_orthographicMatrix = new Matrix4f();
         g_orthographicMatrix.loadOrtho(-ViewMaxX, +ViewMaxX, -ViewMaxY, +ViewMaxY, -1.0f, 1.0f);
     }
@@ -159,12 +158,8 @@ public class GPUSpiralFilter extends MyGPUImageFilter{
     }
 
     private void getCoordinate(int i) {
-//        float r= (float) (0.1*(1-Math.sin(angle[i])));
-//        g_pos[i*2]= (float) (r*Math.cos(angle[i]));
-//        g_pos[i*2+1]= (float) (r*Math.sin(angle[i]));
-        double r=0.1*Math.exp(0.1*angle[i]);
-        g_pos[i*2]= (float) (r*Math.cos(angle[i]));
-        g_pos[i*2+1]= (float) (r*Math.sin(angle[i]));
+        g_pos[i*2]= (float) (Math.cos(angle[i]));
+        g_pos[i*2+1]= (float) (0.2*Math.sin(angle[i]));
     }
 
     @Override
@@ -193,9 +188,8 @@ public class GPUSpiralFilter extends MyGPUImageFilter{
 
 
             angle[i]+=Math.toRadians(SPEED);
-            double r=0.1*Math.exp(0.1*angle[i]);
-            g_pos[i*2]= (float) (r*Math.cos(angle[i]));
-            g_pos[i*2+1]= (float) (r*Math.sin(angle[i]));
+            g_pos[i*2]= (float) (Math.cos(angle[i]));
+            g_pos[i*2+1]= (float) (0.2*Math.sin(angle[i]));
             g_size[i]-=SIZE_CHANGE_SPEED;
             if(g_pos[i * 2 + 1] < -(ViewMaxY + 0.2f) ||
                     g_pos[i * 2 + 0] < -(ViewMaxX + 0.2f) || g_pos[i * 2 + 0] > (ViewMaxX + 0.2f)||g_size[i]<=1f||g_col[i * 4 + 3]<=0f )
