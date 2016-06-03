@@ -68,14 +68,14 @@ public class GPUFiveStarFilter extends MyGPUImageFilter{
     private static final float ViewMaxY = 3;
 
 
-    private static final int MaxStarNum = 30;
+    private static final int MaxStarNum = 20;
     private float RANGE_X_STAR=1f,RANGE_Y_STAR=1.5F;
 //    private final float  MOVE_SPEED= (float) (Math.PI/4000);
     private float[] move_speed=new float[MaxStarNum];
     private final float ALPHA_CHANGE_SPEED=0.003F;
     private final float SIZE_CHANGE_SPEED=0.1F;
     private final float RANDOM_FACTOR=-10F;
-    private final int TEXTURE_NUM=2;
+    private final int TEXTURE_NUM=4;
     private boolean[] isClockWise=new boolean[MaxStarNum];
     private boolean[] isBigger=new boolean[MaxStarNum];
     private int numOfAppear=1;
@@ -142,10 +142,10 @@ public class GPUFiveStarFilter extends MyGPUImageFilter{
             //坐标
             getCoordinate(i);
             g_ratio[i]= (float) Math.sqrt(g_pos[i * 2 + 0]* g_pos[i * 2 + 0]+ g_pos[i * 2 + 1]* g_pos[i * 2 + 1]);
-            //颜色
-            g_col[i * 4 + 0] = 0.93333333f;
-            g_col[i * 4 + 1] = 0.78823529f;
-            g_col[i * 4 + 2] = 0.0f;
+            //颜色0.93333333f;0.78823529f;0f
+            g_col[i * 4 + 0] = 1f;
+            g_col[i * 4 + 1] = 1f;
+            g_col[i * 4 + 2] = 1f;
             g_col[i * 4 + 3] = 1f; //RandomFloat( 0.6f, 1.0f ); // It seems that Doodle Jump snow does not use alpha.
             g_size[i] =nextFloat(80f,120f);
             if(g_size[i]>110f)
@@ -181,10 +181,14 @@ public class GPUFiveStarFilter extends MyGPUImageFilter{
         mGLRotation.put(g_rotation).position(0);
 
         if (mUsingStarTextureId == OpenGlUtils.NO_TEXTURE) {
-            Bitmap bitmap1= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.star3);
-            Bitmap bitmap2= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.star4);
-            mTexttureStyle[0] =OpenGlUtils.loadTexture(bitmap1,OpenGlUtils.NO_TEXTURE,false);
-            mTexttureStyle[1] =OpenGlUtils.loadTexture(bitmap2,OpenGlUtils.NO_TEXTURE,false);
+            Bitmap bitmap1= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.music1);
+            Bitmap bitmap2= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.music2);
+            Bitmap bitmap3= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.music3);
+            Bitmap bitmap4= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.music4);
+            mTexttureStyle[0] =OpenGlUtils.loadTexture(bitmap1,OpenGlUtils.NO_TEXTURE,true);
+            mTexttureStyle[1] =OpenGlUtils.loadTexture(bitmap2,OpenGlUtils.NO_TEXTURE,true);
+            mTexttureStyle[2] =OpenGlUtils.loadTexture(bitmap3,OpenGlUtils.NO_TEXTURE,true);
+            mTexttureStyle[3] =OpenGlUtils.loadTexture(bitmap4,OpenGlUtils.NO_TEXTURE,false);
             mUsingStarTextureId= mTexttureStyle[0];
             for( int i = 0; i < MaxStarNum; ++i ){
                 texture[i]= mTexttureStyle[mRandom.nextInt(TEXTURE_NUM)];

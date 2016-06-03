@@ -20,7 +20,7 @@ import jp.co.cyberagent.android.gpuimage.Rotation;
 /**
  * Created by zhangsutao on 2016/5/27.
  */
-public class GPUHeartShapeFilter extends MyGPUImageFilter{
+public class GPURectangleFilter extends MyGPUImageFilter{
 
 
     public static final String VERTEX_SHADER = "" +
@@ -71,17 +71,20 @@ public class GPUHeartShapeFilter extends MyGPUImageFilter{
     private static final int NUMOFSEND=4;
     private static final int HEARTNUM=27;
     private static final int MaxHeartNum = (NUMOFSEND+1)*HEARTNUM;
-    private final float SIZE_CHANGE_SPEED=1f;
+    private final float MOVE_SPEED=0.05f;
     private final int TEXTURE_NUM=1;
     private float[] angle=new float[MaxHeartNum];
     private boolean[] isSend=new boolean[MaxHeartNum];
     private float[] sendHeartX=new float[MaxHeartNum];
     private float[] sendHeartY=new float[MaxHeartNum];
     private Matrix4f g_orthographicMatrix;
-    private final float APPEAR_INTERVAL=0.18f;
+    private final float APPEAR_INTERVAL=0.20f;
     private float interval=0;
     private int numOfAppear=0;
     private final float SPEED=1.2f;
+    private final float RECTANGLE_WIDTH=3;
+    private final float RECTANGEL_HEIGHT=5;
+
 
 
     private long g_nowTime, g_prevTime;
@@ -101,7 +104,7 @@ public class GPUHeartShapeFilter extends MyGPUImageFilter{
 
 
 
-    public GPUHeartShapeFilter() {
+    public GPURectangleFilter() {
         g_orthographicMatrix = new Matrix4f();
         g_orthographicMatrix.loadOrtho(-ViewMaxX, +ViewMaxX, -ViewMaxY, +ViewMaxY, -1.0f, 1.0f);
     }
@@ -162,9 +165,9 @@ public class GPUHeartShapeFilter extends MyGPUImageFilter{
     }
 
     private void getCoordinate(int i) {
-        double sin=Math.sin(angle[i]);
-        g_pos[i*2]= (float) (16*sin*sin*sin)/10;
-        g_pos[i*2+1]= (float) (13*Math.cos(angle[i])-5*Math.cos(2*angle[i])-2*Math.cos(3*angle[i])-Math.cos(4*angle[i]))/8+0.5f;
+
+        g_pos[i*2]=-RECTANGLE_WIDTH/2;
+        g_pos[i*2+1]=RECTANGEL_HEIGHT/2;
     }
 
     @Override
@@ -188,13 +191,30 @@ public class GPUHeartShapeFilter extends MyGPUImageFilter{
             numOfAppear+=(NUMOFSEND+1);
             interval=0;
         }
+        float x_vel = 0,y_vel=0;
         for( int i = 0; i < numOfAppear; i+=(NUMOFSEND+1) )
         {
             descideIfSend(i);
-            angle[i]+=Math.toRadians(SPEED);
-            double sin=Math.sin(angle[i]);
-            g_pos[i*2]= (float) (16*sin*sin*sin)/8.5f;
-            g_pos[i*2+1]= (float) (13*Math.cos(angle[i])-5*Math.cos(2*angle[i])-2*Math.cos(3*angle[i])-Math.cos(4*angle[i]))/8+0.5f;
+            if(g_pos[i*2+1]>=RECTANGEL_HEIGHT/2&&g_pos[i*2]<RECTANGLE_WIDTH/2){
+                x_vel=MOVE_SPEED;
+                y_vel=0;
+            }else
+                if(g_pos[i*2]>=0&&g_pos[i*2+1]>-RECTANGEL_HEIGHT/2){
+                    x_vel=0;
+                    y_vel=-MOVE_SPEED;
+                }else
+                    if(g_pos[i*2]>-RECTANGLE_WIDTH/2&&g_pos[i*2+1]<=0){
+                        x_vel=-MOVE_SPEED;
+                        y_vel=0;
+                    }else
+                        if(g_pos[i*2]<=0&&g_pos[i*2+1]<RECTANGEL_HEIGHT/2){
+                            x_vel=0;
+                            y_vel=MOVE_SPEED;
+                        }
+
+
+            g_pos[i*2]+=x_vel;
+            g_pos[i*2+1]+=y_vel;
             if(g_size[i]<=1f||g_col[i * 4 + 3]<=0f )
             {
                 angle[i]=0;

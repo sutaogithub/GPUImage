@@ -29,6 +29,7 @@ import com.example.gpuimage.myfilter.GPUImageStarFilter;
 import com.example.gpuimage.myfilter.GPUHeartShapeFilter;
 import com.example.gpuimage.myfilter.GPUOvalFilter;
 import com.example.gpuimage.myfilter.GPUParabolaFilter;
+import com.example.gpuimage.myfilter.GPURectangleFilter;
 import com.example.gpuimage.myfilter.GPUSpiralFilter;
 import com.example.gpuimage.myfilter.GPUWuyaFilter;
 import com.example.gpuimage.myfilter.MyGPUImageSnowFallFilter;
@@ -42,6 +43,7 @@ public class GPUImageFilterTools {
     public static void showDialog(final Context context,
             final OnGpuImageFilterChosenListener listener) {
         final FilterList filters = new FilterList();
+        filters.addFilter("矩形",FilterType.RECTANGLE);
         filters.addFilter("椭圆",FilterType.OVAL);
         filters.addFilter("等角螺线",FilterType.SPIRAL);
         filters.addFilter("抛物线",FilterType.PARABOLA);
@@ -148,6 +150,8 @@ public class GPUImageFilterTools {
 
     private static GPUImageFilter createFilterForType(final Context context, final FilterType type) {
         switch (type) {
+            case RECTANGLE:
+                return new GPURectangleFilter();
             case OVAL:
                 return new GPUOvalFilter();
             case SPIRAL:
@@ -367,7 +371,7 @@ public class GPUImageFilterTools {
         BLEND_DISSOLVE, BLEND_EXCLUSION, BLEND_SOURCE_OVER, BLEND_HARD_LIGHT, BLEND_LIGHTEN, BLEND_ADD, BLEND_DIVIDE, BLEND_MULTIPLY, BLEND_OVERLAY, BLEND_SCREEN, BLEND_ALPHA,
         BLEND_COLOR, BLEND_HUE, BLEND_SATURATION, BLEND_LUMINOSITY, BLEND_LINEAR_BURN, BLEND_SOFT_LIGHT, BLEND_SUBTRACT, BLEND_CHROMA_KEY, BLEND_NORMAL, LOOKUP_AMATORKA,
         GAUSSIAN_BLUR, CROSSHATCH, BOX_BLUR, CGA_COLORSPACE, DILATION, KUWAHARA, RGB_DILATION, SKETCH, TOON, SMOOTH_TOON, BULGE_DISTORTION, GLASS_SPHERE, HAZE, LAPLACIAN, NON_MAXIMUM_SUPPRESSION,
-        SPHERE_REFRACTION, SWIRL, WEAK_PIXEL_INCLUSION, FALSE_COLOR, COLOR_BALANCE, LEVELS_FILTER_MIN, BILATERAL_BLUR, HALFTONE, FIVESTAR, WUYA, HEARTSHAPE, PARABOLA, OVAL, TRANSFORM2D
+        SPHERE_REFRACTION, SWIRL, WEAK_PIXEL_INCLUSION, FALSE_COLOR, COLOR_BALANCE, LEVELS_FILTER_MIN, BILATERAL_BLUR, HALFTONE, FIVESTAR, WUYA, HEARTSHAPE, PARABOLA, OVAL, RECTANGLE, TRANSFORM2D
     }
 
     private static class FilterList {

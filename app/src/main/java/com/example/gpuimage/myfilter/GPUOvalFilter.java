@@ -68,7 +68,6 @@ public class GPUOvalFilter extends MyGPUImageFilter{
 
     private static final int MaxStarNum = 32;
     private final float SIZE_CHANGE_SPEED=0f;
-    private final float RANDOM_FACTOR=-10F;
     private final int TEXTURE_NUM=1;
     private float[] angle=new float[MaxStarNum];
     private Matrix4f g_orthographicMatrix;
