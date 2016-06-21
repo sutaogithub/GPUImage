@@ -6,6 +6,8 @@ import android.os.SystemClock;
 import android.renderscript.Matrix4f;
 import com.example.gpuimage.R;
 import com.example.gpuimage.utils.MyApplication;
+import com.example.gpuimage.utils.TextureHelper;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -50,6 +52,7 @@ public class MyGPUImageSnowFallFilter extends MyGPUImageFilter {
             "    gl_FragColor = v_color * texture2D( u_texture0, gl_PointCoord);\n" +
             "}\n";
 
+
     private int mSnowfallProgramId;
     protected int g_a_positionHandle;
     protected int g_a_colorHandle;
@@ -63,7 +66,8 @@ public class MyGPUImageSnowFallFilter extends MyGPUImageFilter {
     private static final float ViewMaxX = 2;
     private static final float ViewMaxY = 3;
 
-    private static final int MaxSnowFlakes = 100;
+    private static final int MaxSnowFlakes = 60;
+    private static final int TEXTURE_NUM =9 ;
 
     // Each snow flake will wait 3 seconds - then turn or change direction.
     private static final float TimeTillTurn = 3.0f;
@@ -78,6 +82,10 @@ public class MyGPUImageSnowFallFilter extends MyGPUImageFilter {
     private float g_col[] = new float[MaxSnowFlakes * 4];
     private float g_size[] = new float[MaxSnowFlakes];
     private float g_timeSinceLastTurn[] = new float[MaxSnowFlakes];
+    private int mUsingStarTextureId = OpenGlUtils.NO_TEXTURE;
+    private int[] mTexttureStyle =new int[TEXTURE_NUM];
+    private int[] texture=new int[MaxSnowFlakes];
+
 
     private FloatBuffer mGLPosBuffer;
     private FloatBuffer mGLVelBuffer;
@@ -129,7 +137,7 @@ public class MyGPUImageSnowFallFilter extends MyGPUImageFilter {
 //            Loger.d("Test", "pos[" + i + "]=(" + g_pos[i * 2 + 0] + ", " + g_pos[i * 2 + 1] + ")");
 
             g_vel[i * 2 + 0] = nextFloat(-0.012f, 0.012f); // Flakes move side to side
-            g_vel[i * 2 + 1] = nextFloat(-0.03f, -0.024f); // Flakes fall down
+            g_vel[i * 2 + 1] = nextFloat(-0.01f, -0.001f); // Flakes fall down
 
             //颜色
             g_col[i * 4 + 0] = 1.0f;
@@ -167,6 +175,31 @@ public class MyGPUImageSnowFallFilter extends MyGPUImageFilter {
 //            mSnowtTextureId = OpenGlUtils.loadTexture(CameraApp.getApplication().getResources(),
 //                    R.raw.snow3, OpenGlUtils.NO_TEXTURE, false);
             mSnowtTextureId=OpenGlUtils.loadTexture(bitmap,OpenGlUtils.NO_TEXTURE,false);
+        }
+        if (mUsingStarTextureId == OpenGlUtils.NO_TEXTURE) {
+            Bitmap bitmap1= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.sakura1);
+            Bitmap bitmap2= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.sakura2);
+            Bitmap bitmap3= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.sakura3);
+            Bitmap bitmap4= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.sakura4);
+            Bitmap bitmap5= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.sakura5);
+            Bitmap bitmap6= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.sakura6);
+            Bitmap bitmap7= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.sakura7);
+            Bitmap bitmap8= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.sakura8);
+            Bitmap bitmap9= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.sakura9);
+
+            mTexttureStyle[0] = TextureHelper.loadTexture(bitmap1, OpenGlUtils.NO_TEXTURE, true);
+            mTexttureStyle[1] =TextureHelper.loadTexture(bitmap2,OpenGlUtils.NO_TEXTURE,true);
+            mTexttureStyle[2] =TextureHelper.loadTexture(bitmap3,OpenGlUtils.NO_TEXTURE,true);
+            mTexttureStyle[3] =TextureHelper.loadTexture(bitmap4,OpenGlUtils.NO_TEXTURE,true);
+            mTexttureStyle[4] =TextureHelper.loadTexture(bitmap5,OpenGlUtils.NO_TEXTURE,true);
+            mTexttureStyle[5] =TextureHelper.loadTexture(bitmap6,OpenGlUtils.NO_TEXTURE,true);
+            mTexttureStyle[6] =TextureHelper.loadTexture(bitmap7,OpenGlUtils.NO_TEXTURE,true);
+            mTexttureStyle[7] =TextureHelper.loadTexture(bitmap8,OpenGlUtils.NO_TEXTURE,true);
+            mTexttureStyle[8] =TextureHelper.loadTexture(bitmap9,OpenGlUtils.NO_TEXTURE,true);
+            mUsingStarTextureId= mTexttureStyle[0];
+            for( int i = 0; i < MaxSnowFlakes; ++i ){
+                texture[i]= mTexttureStyle[mRandom.nextInt(TEXTURE_NUM)];
+            }
         }
     }
 
@@ -213,6 +246,7 @@ public class MyGPUImageSnowFallFilter extends MyGPUImageFilter {
             {
                 g_pos[i * 2 + 0] = nextFloat( -ViewMaxX, ViewMaxX );
                 g_pos[i * 2 + 1] = 3.1f;
+                texture[i]= mTexttureStyle[mRandom.nextInt(TEXTURE_NUM)];
             }
         }
 
@@ -232,28 +266,8 @@ public class MyGPUImageSnowFallFilter extends MyGPUImageFilter {
     }
 
     private void draw() {
-
-        // Set the viewport
-//        GLES20.glViewport ( 0, 0, mOutputWidth, mOutputHeight );
-
-        // Doodle jump sky color (or something like it).
-//        GLES20.glClearColor(0.31f, 0.43f, 0.63f, 1.0f);
-//        GLES20.glClear(GLES20.GL_DEPTH_BUFFER_BIT | GLES20.GL_COLOR_BUFFER_BIT);
-
-        // We don't care about depth for point sprites.
-//        GLES20.glDepthMask(false); // Turn off depth writes
-
-//        GLES20.glEnable(GLES20.GL_BLEND);
-//        GLES20.glEnable(GLES20.GL_POINT_SPRITE_OES);
-        //glTexEnvi( GL_POINT_SPRITE_OES, GL_COORD_REPLACE_OES, GL_TRUE );
-
         GLES20.glUseProgram(mSnowfallProgramId);
-//        runPendingOnDrawTasks();
-
         GLES20.glUniformMatrix4fv(g_u_mvpMatrixHandle, 1, false, g_orthographicMatrix.getArray(), 0);
-//        setUniformMatrix4f(g_u_mvpMatrixHandle, g_orthographicMatrix.getArray());
-//        glUniformMatrix4fv( g_u_mvpMatrixHandle, 1, GL_FALSE, g_orthographicMatrix.m );
-
         GLES20.glUniform1f(g_u_rotationHandle, (float) Math.toRadians(mergeRotaion()));
 
         GLES20.glVertexAttribPointer(g_a_positionHandle, 2, GLES20.GL_FLOAT, false, 0, mGLPosBuffer);
@@ -267,7 +281,7 @@ public class MyGPUImageSnowFallFilter extends MyGPUImageFilter {
 
         // Blend particles
         GLES20.glEnable(GLES20.GL_BLEND);
-        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE);
+        GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA);
 
         if (mSnowtTextureId != OpenGlUtils.NO_TEXTURE) {
             GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
@@ -275,7 +289,21 @@ public class MyGPUImageSnowFallFilter extends MyGPUImageFilter {
             GLES20.glUniform1i(g_u_texture0Handle, 0);
         }
 
-        GLES20.glDrawArrays(GLES20.GL_POINTS, 0, MaxSnowFlakes);
+//        GLES20.glDrawArrays(GLES20.GL_POINTS, 0, MaxSnowFlakes);
+        if (mUsingStarTextureId != OpenGlUtils.NO_TEXTURE) {
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mUsingStarTextureId);
+            GLES20.glUniform1i(g_u_texture0Handle, 0);
+        }
+        for(int i=0;i<MaxSnowFlakes;i++){
+            if(mUsingStarTextureId!=texture[i]){
+                mUsingStarTextureId=texture[i];
+                GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+                GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mUsingStarTextureId);
+                GLES20.glUniform1i(g_u_texture0Handle, 0);
+            }
+            GLES20.glDrawArrays(GLES20.GL_POINTS,i,1);
+        }
 
         GLES20.glDisableVertexAttribArray(g_a_positionHandle);
         GLES20.glDisableVertexAttribArray(g_a_colorHandle);

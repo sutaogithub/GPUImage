@@ -8,6 +8,7 @@ import android.renderscript.Matrix4f;
 
 import com.example.gpuimage.R;
 import com.example.gpuimage.utils.MyApplication;
+import com.example.gpuimage.utils.TextureHelper;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -21,15 +22,17 @@ import jp.co.cyberagent.android.gpuimage.Rotation;
 /**
  * Created by zhangsutao on 2016/5/25.
  */
-public class GPUFiveStarFilter extends MyGPUImageFilter{
+public class GPUImageSakuraFilter extends MyGPUImageFilter{
     public static final String VERTEX_SHADER = "" +
             "attribute vec4 a_position;\n" +
             "attribute vec4 a_color;\n" +
             "attribute float a_pointSize;\n" +
+            "attribute float a_alpha;\n"+
             "uniform mat4 u_mvpMatrix;\n" +
             "attribute float a_Rotation;\n" +
             "varying vec4 v_color;\n" +
             "varying vec2 v_texCoord;\n" +
+            "varying float v_alpha;\n"+
             "varying float v_Rotation;\n" +
 
             "void main()\n" +
@@ -44,14 +47,16 @@ public class GPUFiveStarFilter extends MyGPUImageFilter{
             "varying vec4 v_color;\n" +
             "uniform sampler2D u_texture0;\n" +
             "varying float v_Rotation;\n" +
+            "varying float v_alpha;\n"+
 
             "void main()\n" +
             "{\n" +
             "    float mid = 0.5;\n" +
             "    vec2 rotated = vec2(cos(v_Rotation) * (gl_PointCoord.x - mid) + sin(v_Rotation) * (gl_PointCoord.y - mid) + mid,\n" +
             "                        cos(v_Rotation) * (gl_PointCoord.y - mid) - sin(v_Rotation) * (gl_PointCoord.x - mid) + mid);\n" +
-            "    gl_FragColor = v_color * texture2D( u_texture0, rotated);\n" +
+            "    gl_FragColor =  v_color * texture2D( u_texture0, rotated);\n" +
             "}\n";
+    private static final float INIT_SIZE =80F ;
 
 
     private int mSnowfallProgramId;
@@ -68,19 +73,19 @@ public class GPUFiveStarFilter extends MyGPUImageFilter{
     private static final float ViewMaxY = 3;
 
 
-    private static final int MaxStarNum = 20;
-    private float RANGE_X_STAR=1f,RANGE_Y_STAR=1.5F;
+    private static final int MaxStarNum = 35;
+    private float RANGE_X_STAR=0.5f,RANGE_Y_STAR=1F;
 //    private final float  MOVE_SPEED= (float) (Math.PI/4000);
     private float[] move_speed=new float[MaxStarNum];
-    private final float ALPHA_CHANGE_SPEED=0.003F;
-    private final float SIZE_CHANGE_SPEED=0.1F;
-    private final float RANDOM_FACTOR=-10F;
-    private final int TEXTURE_NUM=4;
+    private final float ALPHA_CHANGE_SPEED=0.01f;
+    private final float SIZE_CHANGE_SPEED=0f;
+    private final int TEXTURE_NUM=9;
     private boolean[] isClockWise=new boolean[MaxStarNum];
-    private boolean[] isBigger=new boolean[MaxStarNum];
+    private float[] liveTime=new float[MaxStarNum];
     private int numOfAppear=1;
     private float interval=0;
     private final float TimeTillTurn=0.5f;
+    private float[] alpha=new float[MaxStarNum];
 
 
     // Each snow flake will wait 3 seconds - then turn or change direction.
@@ -109,10 +114,9 @@ public class GPUFiveStarFilter extends MyGPUImageFilter{
 
 
 
-    private float g_timeSinceLastTurn[] = new float[MaxStarNum];
 
 
-    public GPUFiveStarFilter() {
+    public GPUImageSakuraFilter() {
         g_orthographicMatrix = new Matrix4f();
         g_orthographicMatrix.loadOrtho(-ViewMaxX, +ViewMaxX, -ViewMaxY, +ViewMaxY, -1.0f, 1.0f);
     }
@@ -135,7 +139,7 @@ public class GPUFiveStarFilter extends MyGPUImageFilter{
         // Fragment shader variables
         g_u_texture0Handle = GLES20.glGetUniformLocation(mSnowfallProgramId, "u_texture0");
 
-        g_nowTime = SystemClock.uptimeMillis();
+        g_nowTime = SystemClock.elapsedRealtime();
         g_prevTime = g_nowTime;
         for( int i = 0; i < MaxStarNum; ++i )
         {
@@ -146,16 +150,14 @@ public class GPUFiveStarFilter extends MyGPUImageFilter{
             g_col[i * 4 + 0] = 1f;
             g_col[i * 4 + 1] = 1f;
             g_col[i * 4 + 2] = 1f;
-            g_col[i * 4 + 3] = 1f; //RandomFloat( 0.6f, 1.0f ); // It seems that Doodle Jump snow does not use alpha.
-            g_size[i] =nextFloat(80f,120f);
-            if(g_size[i]>110f)
-                isBigger[i]=false;
-            else
-                isBigger[i]=true;
+            g_col[i * 4 + 3] = 1f;
+            g_size[i] =nextFloat(20,60);
+            liveTime[i]=3;
             g_rotation[i]=0;
-            g_timeSinceLastTurn[i] = nextFloat(RANDOM_FACTOR, 0.0f);
+            alpha[i]=1;
+
             isClockWise[i]=mRandom.nextBoolean();
-            move_speed[i]=nextFloat((float) (Math.PI/5000),(float) (Math.PI/3000));
+            move_speed[i]=nextFloat((float) (Math.PI/100),(float) (Math.PI/50));
         }
 
         mGLPosBuffer = ByteBuffer.allocateDirect(g_pos.length * 4)
@@ -174,6 +176,7 @@ public class GPUFiveStarFilter extends MyGPUImageFilter{
                 .order(ByteOrder.nativeOrder())
                 .asFloatBuffer();
 
+
         mGLPosBuffer.put(g_pos).position(0);
         mGLVelBuffer.put(g_vel).position(0);
         mGLColBuffer.put(g_col).position(0);
@@ -181,14 +184,25 @@ public class GPUFiveStarFilter extends MyGPUImageFilter{
         mGLRotation.put(g_rotation).position(0);
 
         if (mUsingStarTextureId == OpenGlUtils.NO_TEXTURE) {
-            Bitmap bitmap1= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.music1);
-            Bitmap bitmap2= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.music2);
-            Bitmap bitmap3= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.music3);
-            Bitmap bitmap4= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.music4);
-            mTexttureStyle[0] =OpenGlUtils.loadTexture(bitmap1,OpenGlUtils.NO_TEXTURE,true);
-            mTexttureStyle[1] =OpenGlUtils.loadTexture(bitmap2,OpenGlUtils.NO_TEXTURE,true);
-            mTexttureStyle[2] =OpenGlUtils.loadTexture(bitmap3,OpenGlUtils.NO_TEXTURE,true);
-            mTexttureStyle[3] =OpenGlUtils.loadTexture(bitmap4,OpenGlUtils.NO_TEXTURE,false);
+            Bitmap bitmap1= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.sakura1);
+            Bitmap bitmap2= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.sakura2);
+            Bitmap bitmap3= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.sakura3);
+            Bitmap bitmap4= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.sakura4);
+            Bitmap bitmap5= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.sakura5);
+            Bitmap bitmap6= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.sakura6);
+            Bitmap bitmap7= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.sakura7);
+            Bitmap bitmap8= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.sakura8);
+            Bitmap bitmap9= BitmapFactory.decodeResource(MyApplication.getResource(), R.raw.sakura9);
+
+            mTexttureStyle[0] = TextureHelper.loadTexture(bitmap1, OpenGlUtils.NO_TEXTURE, true);
+            mTexttureStyle[1] =TextureHelper.loadTexture(bitmap2,OpenGlUtils.NO_TEXTURE,true);
+            mTexttureStyle[2] =TextureHelper.loadTexture(bitmap3,OpenGlUtils.NO_TEXTURE,true);
+            mTexttureStyle[3] =TextureHelper.loadTexture(bitmap4,OpenGlUtils.NO_TEXTURE,true);
+            mTexttureStyle[4] =TextureHelper.loadTexture(bitmap5,OpenGlUtils.NO_TEXTURE,true);
+            mTexttureStyle[5] =TextureHelper.loadTexture(bitmap6,OpenGlUtils.NO_TEXTURE,true);
+            mTexttureStyle[6] =TextureHelper.loadTexture(bitmap7,OpenGlUtils.NO_TEXTURE,true);
+            mTexttureStyle[7] =TextureHelper.loadTexture(bitmap8,OpenGlUtils.NO_TEXTURE,true);
+            mTexttureStyle[8] =TextureHelper.loadTexture(bitmap9,OpenGlUtils.NO_TEXTURE,true);
             mUsingStarTextureId= mTexttureStyle[0];
             for( int i = 0; i < MaxStarNum; ++i ){
                 texture[i]= mTexttureStyle[mRandom.nextInt(TEXTURE_NUM)];
@@ -223,7 +237,7 @@ public class GPUFiveStarFilter extends MyGPUImageFilter{
     }
 
     private void update() {
-        g_nowTime = SystemClock.uptimeMillis();
+        g_nowTime = SystemClock.elapsedRealtime();
         float elapsed = (g_nowTime - g_prevTime) / 1000.0f;
         interval+=elapsed;
         for( int i = 0; i < numOfAppear; ++i )
@@ -234,12 +248,12 @@ public class GPUFiveStarFilter extends MyGPUImageFilter{
                 if(numOfAppear< MaxStarNum)
                     numOfAppear++;
             }
-            g_timeSinceLastTurn[i] += elapsed;
-            if( g_timeSinceLastTurn[i] >= 0 )
-            {
+
                 //alpha
-                g_col[i * 4 + 3]-=ALPHA_CHANGE_SPEED;
-            }
+            if(liveTime[i]<0)
+                for(int z=0;z<4;z++)
+                g_col[i * 4 + z]-=ALPHA_CHANGE_SPEED;
+
             //优化后
             double angle=Math.asin(g_pos[i * 2 + 1]/ g_ratio[i]);
             if(g_pos[i * 2 + 0]<0)
@@ -248,35 +262,30 @@ public class GPUFiveStarFilter extends MyGPUImageFilter{
                 else
                     angle=Math.PI-angle;
             if(isClockWise[i]){
-                angle+=move_speed[i];
-                g_rotation[i]+=Math.toRadians(1);
+                angle+=move_speed[i]*elapsed;
+//                g_rotation[i]+=Math.toRadians(1);
             }
             else{
-                angle-=move_speed[i];
-                g_rotation[i]-=Math.toRadians(1);
+                angle-=move_speed[i]*elapsed;
+//                g_rotation[i]-=Math.toRadians(1);
             }
 
             float new_x= (float) (g_ratio[i]*Math.cos(angle));
             float new_y= (float) (g_ratio[i]*Math.sin(angle));
             g_pos[i * 2 + 0] =new_x;
             g_pos[i * 2 + 1] =new_y;
+            liveTime[i]-=nextFloat(0.001f,0.008f);
 
             //size
-            if(isBigger[i])
-                 g_size[i]+=SIZE_CHANGE_SPEED;
-            else
-                g_size[i]-=SIZE_CHANGE_SPEED;
-            if( g_size[i]>=200f||g_size[i]<=1f||g_col[i * 4 + 3]<=0f )
+            g_size[i]-=SIZE_CHANGE_SPEED;
+            if(g_col[i*4+3]<0f||g_pos[i*2]<-ViewMaxX||g_pos[i*2]>ViewMaxX||g_pos[i*2+1]<-ViewMaxY||g_pos[i*2+1]>ViewMaxY||g_size[i]<=10f)
             {
                 getCoordinate(i);
                 g_ratio[i]= (float) Math.sqrt(g_pos[i * 2 + 0]* g_pos[i * 2 + 0]+ g_pos[i * 2 + 1]* g_pos[i * 2 + 1]);
-                g_size[i] =nextFloat(80f,120f);
-                if(g_size[i]>110f)
-                    isBigger[i]=false;
-                else
-                    isBigger[i]=true;
-                g_col[i * 4 + 3]=nextFloat(0.7f,1.0f);
-                g_timeSinceLastTurn[i] = nextFloat(RANDOM_FACTOR, 0.0f);
+                g_size[i] =nextFloat(20,60);
+                for(int z=0;z<4;z++)
+                    g_col[i * 4 + z]=1;
+                liveTime[i]=3;
                 texture[i]= mTexttureStyle[mRandom.nextInt(TEXTURE_NUM)];
             }
         }
@@ -315,12 +324,14 @@ public class GPUFiveStarFilter extends MyGPUImageFilter{
         GLES20.glVertexAttribPointer(g_a_pointSizeHandle, 1, GLES20.GL_FLOAT, false, 0, mGLSize);
         GLES20.glEnableVertexAttribArray(g_a_pointSizeHandle);
 
-        GLES20.glVertexAttribPointer(g_a_rotationHandle,1,GLES20.GL_FLOAT,false,0,mGLRotation);
+        GLES20.glVertexAttribPointer(g_a_rotationHandle, 1, GLES20.GL_FLOAT, false, 0, mGLRotation);
         GLES20.glEnableVertexAttribArray(g_a_rotationHandle);
 
-        // Blend particles
+        // g_col particles
+
         GLES20.glEnable(GLES20.GL_BLEND);
-        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+        GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+
 
         if (mUsingStarTextureId != OpenGlUtils.NO_TEXTURE) {
             GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
