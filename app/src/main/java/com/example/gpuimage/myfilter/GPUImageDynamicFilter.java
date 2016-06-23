@@ -17,11 +17,11 @@ import java.util.Random;
 import jp.co.cyberagent.android.gpuimage.OpenGlUtils;
 import jp.co.cyberagent.android.gpuimage.Rotation;
 
-
 /**
- * Created by zhangsutao on 2016/5/25.
+ * Created by zhangsutao on 2016/6/23.
  */
-public class GPUFiveStarFilter extends MyGPUImageFilter{
+public abstract class GPUImageDynamicFilter extends MyGPUImageFilter{
+
     public static final String VERTEX_SHADER = "" +
             "attribute vec4 a_position;\n" +
             "attribute vec4 a_color;\n" +
@@ -50,11 +50,19 @@ public class GPUFiveStarFilter extends MyGPUImageFilter{
             "    float mid = 0.5;\n" +
             "    vec2 rotated = vec2(cos(v_Rotation) * (gl_PointCoord.x - mid) + sin(v_Rotation) * (gl_PointCoord.y - mid) + mid,\n" +
             "                        cos(v_Rotation) * (gl_PointCoord.y - mid) - sin(v_Rotation) * (gl_PointCoord.x - mid) + mid);\n" +
+            "if(rotated.x>1.0)" +
+            "   rotated.x=1.0;" +
+            "if(rotated.x<0.0)" +
+            "   rotated.x=0.0;"+
+            "if(rotated.y<0.0)" +
+            "   rotated.y=0.0;"+
+            "if(rotated.y>1.0)" +
+            "   rotated.y=1.0;"+
             "    gl_FragColor = v_color * texture2D( u_texture0, rotated);\n" +
             "}\n";
 
 
-    private int mSnowfallProgramId;
+    private int ProgramId;
     protected int g_a_positionHandle;
     protected int g_a_colorHandle;
     protected int g_a_pointSizeHandle;
@@ -67,10 +75,9 @@ public class GPUFiveStarFilter extends MyGPUImageFilter{
 
     private static final int MaxStarNum = 20;
     private float RANGE_X_STAR=1f,RANGE_Y_STAR=1.5F;
-//    private final float  MOVE_SPEED= (float) (Math.PI/4000);
     private float[] move_speed=new float[MaxStarNum];
-    private final float ALPHA_CHANGE_SPEED=0.003F;
-    private final float SIZE_CHANGE_SPEED=0.1F;
+    private float ALPHA_CHANGE_SPEED=0.003F;
+    private float SIZE_CHANGE_SPEED=0.1F;
     private final float RANDOM_FACTOR=-10F;
     private final int TEXTURE_NUM=4;
     private boolean[] isClockWise=new boolean[MaxStarNum];
@@ -79,9 +86,11 @@ public class GPUFiveStarFilter extends MyGPUImageFilter{
     private float interval=0;
     private final float TimeTillTurn=0.5f;
 
-
-    // Each snow flake will wait 3 seconds - then turn or change direction.
-
+    protected abstract float getRANGE_X_STAR();
+    protected abstract float getRANGE_Y_STAR();
+    protected abstract float getALPHA_CHANGE_SPEED();
+    protected abstract float getSIZE_CHANGE_SPEED();
+    protected abstract float getSize();
 
     private Matrix4f g_orthographicMatrix;
 
@@ -109,9 +118,13 @@ public class GPUFiveStarFilter extends MyGPUImageFilter{
     private float g_timeSinceLastTurn[] = new float[MaxStarNum];
 
 
-    public GPUFiveStarFilter() {
+    public GPUImageDynamicFilter() {
         g_orthographicMatrix = new Matrix4f();
         g_orthographicMatrix.loadOrtho(-ViewMaxX, +ViewMaxX, -ViewMaxY, +ViewMaxY, -1.0f, 1.0f);
+        RANGE_X_STAR=getRANGE_X_STAR();
+        RANGE_Y_STAR=getRANGE_Y_STAR();
+        ALPHA_CHANGE_SPEED=getALPHA_CHANGE_SPEED();
+        SIZE_CHANGE_SPEED=getSIZE_CHANGE_SPEED();
     }
 
     @Override
@@ -119,19 +132,14 @@ public class GPUFiveStarFilter extends MyGPUImageFilter{
         super.onInit();
 
         mRandom = new Random();
-
-        mSnowfallProgramId = OpenGlUtils.loadProgram(VERTEX_SHADER, FRAGMENT_SHADER);
+        ProgramId = OpenGlUtils.loadProgram(VERTEX_SHADER, FRAGMENT_SHADER);
         // Vertex shader variables
-        g_a_positionHandle = GLES20.glGetAttribLocation(mSnowfallProgramId, "a_position");
-        g_a_colorHandle = GLES20.glGetAttribLocation(mSnowfallProgramId, "a_color");
-        g_a_pointSizeHandle = GLES20.glGetAttribLocation(mSnowfallProgramId, "a_pointSize");
-        g_a_rotationHandle = GLES20.glGetAttribLocation(mSnowfallProgramId, "a_Rotation");
-        g_u_mvpMatrixHandle = GLES20.glGetUniformLocation(mSnowfallProgramId, "u_mvpMatrix");
-
-
-        // Fragment shader variables
-        g_u_texture0Handle = GLES20.glGetUniformLocation(mSnowfallProgramId, "u_texture0");
-
+        g_a_positionHandle = GLES20.glGetAttribLocation(ProgramId, "a_position");
+        g_a_colorHandle = GLES20.glGetAttribLocation(ProgramId, "a_color");
+        g_a_pointSizeHandle = GLES20.glGetAttribLocation(ProgramId, "a_pointSize");
+        g_a_rotationHandle = GLES20.glGetAttribLocation(ProgramId, "a_Rotation");
+        g_u_mvpMatrixHandle = GLES20.glGetUniformLocation(ProgramId, "u_mvpMatrix");
+        g_u_texture0Handle = GLES20.glGetUniformLocation(ProgramId, "u_texture0");
         g_nowTime = SystemClock.uptimeMillis();
         g_prevTime = g_nowTime;
         for( int i = 0; i < MaxStarNum; ++i )
@@ -143,8 +151,8 @@ public class GPUFiveStarFilter extends MyGPUImageFilter{
             g_col[i * 4 + 0] = 1f;
             g_col[i * 4 + 1] = 1f;
             g_col[i * 4 + 2] = 1f;
-            g_col[i * 4 + 3] = 1f; //RandomFloat( 0.6f, 1.0f ); // It seems that Doodle Jump snow does not use alpha.
-            g_size[i] =nextFloat(80f,120f);
+            g_col[i * 4 + 3] = 1f;
+            g_size[i] =getSize();
             if(g_size[i]>110f)
                 isBigger[i]=false;
             else
@@ -260,7 +268,7 @@ public class GPUFiveStarFilter extends MyGPUImageFilter{
 
             //size
             if(isBigger[i])
-                 g_size[i]+=SIZE_CHANGE_SPEED;
+                g_size[i]+=SIZE_CHANGE_SPEED;
             else
                 g_size[i]-=SIZE_CHANGE_SPEED;
             if( g_size[i]>=200f||g_size[i]<=1f||g_col[i * 4 + 3]<=0f )
@@ -297,7 +305,7 @@ public class GPUFiveStarFilter extends MyGPUImageFilter{
     }
 
     private void draw() {
-        GLES20.glUseProgram(mSnowfallProgramId);
+        GLES20.glUseProgram(ProgramId);
         GLES20.glUniformMatrix4fv(g_u_mvpMatrixHandle, 1, false, g_orthographicMatrix.getArray(), 0);
 
 //        GLES20.glUniform1f(g_a_rotationHandle, (float) Math.toRadians(rotation));
@@ -358,8 +366,8 @@ public class GPUFiveStarFilter extends MyGPUImageFilter{
                 mUsingStarTextureId
         }, 0);
         mUsingStarTextureId = OpenGlUtils.NO_TEXTURE;
-        GLES20.glDeleteProgram(mSnowfallProgramId);
-        mSnowfallProgramId = 0;
+        GLES20.glDeleteProgram(ProgramId);
+        ProgramId = 0;
     }
 
 

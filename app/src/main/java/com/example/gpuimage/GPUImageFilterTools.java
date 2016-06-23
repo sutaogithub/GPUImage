@@ -24,6 +24,7 @@ import android.graphics.PointF;
 import android.opengl.Matrix;
 
 import com.example.gpuimage.myfilter.GPUFiveStarFilter;
+import com.example.gpuimage.myfilter.GPUImageGeometryFilter;
 import com.example.gpuimage.myfilter.GPUImageHeartFilter;
 import com.example.gpuimage.myfilter.GPUImageMusicFilter;
 import com.example.gpuimage.myfilter.GPUImageSakuraFilter;
@@ -46,6 +47,7 @@ public class GPUImageFilterTools {
     public static void showDialog(final Context context,
             final OnGpuImageFilterChosenListener listener) {
         final FilterList filters = new FilterList();
+        filters.addFilter("几何",FilterType.GEOMETRY);
         filters.addFilter("音符",FilterType.MUSIC);
         filters.addFilter("樱花",FilterType.SAKURA);
         filters.addFilter("矩形",FilterType.RECTANGLE);
@@ -155,6 +157,8 @@ public class GPUImageFilterTools {
 
     private static GPUImageFilter createFilterForType(final Context context, final FilterType type) {
         switch (type) {
+            case GEOMETRY:
+                return new GPUImageGeometryFilter();
             case MUSIC:
                 return new GPUImageMusicFilter();
             case SAKURA:
@@ -380,7 +384,7 @@ public class GPUImageFilterTools {
         BLEND_DISSOLVE, BLEND_EXCLUSION, BLEND_SOURCE_OVER, BLEND_HARD_LIGHT, BLEND_LIGHTEN, BLEND_ADD, BLEND_DIVIDE, BLEND_MULTIPLY, BLEND_OVERLAY, BLEND_SCREEN, BLEND_ALPHA,
         BLEND_COLOR, BLEND_HUE, BLEND_SATURATION, BLEND_LUMINOSITY, BLEND_LINEAR_BURN, BLEND_SOFT_LIGHT, BLEND_SUBTRACT, BLEND_CHROMA_KEY, BLEND_NORMAL, LOOKUP_AMATORKA,
         GAUSSIAN_BLUR, CROSSHATCH, BOX_BLUR, CGA_COLORSPACE, DILATION, KUWAHARA, RGB_DILATION, SKETCH, TOON, SMOOTH_TOON, BULGE_DISTORTION, GLASS_SPHERE, HAZE, LAPLACIAN, NON_MAXIMUM_SUPPRESSION,
-        SPHERE_REFRACTION, SWIRL, WEAK_PIXEL_INCLUSION, FALSE_COLOR, COLOR_BALANCE, LEVELS_FILTER_MIN, BILATERAL_BLUR, HALFTONE, FIVESTAR, WUYA, HEARTSHAPE, PARABOLA, OVAL, RECTANGLE, SAKURA, MUSIC, SAKURAFALL, TRANSFORM2D
+        SPHERE_REFRACTION, SWIRL, WEAK_PIXEL_INCLUSION, FALSE_COLOR, COLOR_BALANCE, LEVELS_FILTER_MIN, BILATERAL_BLUR, HALFTONE, FIVESTAR, WUYA, HEARTSHAPE, PARABOLA, OVAL, RECTANGLE, SAKURA, MUSIC, SAKURAFALL, GEOMETRY, TRANSFORM2D
     }
 
     private static class FilterList {

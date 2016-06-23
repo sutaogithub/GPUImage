@@ -127,8 +127,8 @@ public class GPUImageHeartFilter extends MyGPUImageFilter{
             g_pos[i * 2 + 1] = nextFloat( -ViewMaxY+ViewMaxY/5, -ViewMaxY+ ViewMaxY*2/5);
 //            Loger.d("Test", "pos[" + i + "]=(" + g_pos[i * 2 + 0] + ", " + g_pos[i * 2 + 1] + ")");
 
-            g_vel[i * 2 + 0] = nextFloat(-0.004f, 0.004f); // Flakes move side to side
-            g_vel[i * 2 + 1] = nextFloat(0.002f,0.005f); // Flakes up
+            g_vel[i * 2 + 0] = nextFloat(-0.2f, 0.2f); // Flakes move side to side
+            g_vel[i * 2 + 1] = nextFloat(0.1f,0.3f); // Flakes up
 
             //颜色
             g_col[i * 4 + 0] = 1.0f;
@@ -199,8 +199,8 @@ public class GPUImageHeartFilter extends MyGPUImageFilter{
             // Speed up the flake up as it leaves the last turn and prepares for next turn.
 //            float turnVelocityModifier = 1;
             // Apply some velocity to simulate gravity and wind.
-            g_pos[i * 2 + 0] += g_vel[i * 2 + 0]; // Side to side
-            g_pos[i * 2 + 1] += g_vel[i * 2 + 1]; // uping
+            g_pos[i * 2 + 0] += g_vel[i * 2 + 0]*elapsed; // Side to side
+            g_pos[i * 2 + 1] += g_vel[i * 2 + 1]*elapsed; // uping
 
             //size
             g_size[i]+=0.1;
@@ -232,38 +232,17 @@ public class GPUImageHeartFilter extends MyGPUImageFilter{
 
     private void draw() {
 
-        // Set the viewport
-//        GLES20.glViewport ( 0, 0, mOutputWidth, mOutputHeight );
 
-        // Doodle jump sky color (or something like it).
-//        GLES20.glClearColor(0.31f, 0.43f, 0.63f, 1.0f);
-//        GLES20.glClear(GLES20.GL_DEPTH_BUFFER_BIT | GLES20.GL_COLOR_BUFFER_BIT);
-
-        // We don't care about depth for point sprites.
-//        GLES20.glDepthMask(false); // Turn off depth writes
-
-//        GLES20.glEnable(GLES20.GL_BLEND);
-//        GLES20.glEnable(GLES20.GL_POINT_SPRITE_OES);
-        //glTexEnvi( GL_POINT_SPRITE_OES, GL_COORD_REPLACE_OES, GL_TRUE );
 
         GLES20.glUseProgram(mSnowfallProgramId);
-//        runPendingOnDrawTasks();
-
         GLES20.glUniformMatrix4fv(g_u_mvpMatrixHandle, 1, false, g_orthographicMatrix.getArray(), 0);
-//        setUniformMatrix4f(g_u_mvpMatrixHandle, g_orthographicMatrix.getArray());
-//        glUniformMatrix4fv( g_u_mvpMatrixHandle, 1, GL_FALSE, g_orthographicMatrix.m );
-
         GLES20.glUniform1f(g_u_rotationHandle, (float) Math.toRadians(mergeRotaion()));
-
         GLES20.glVertexAttribPointer(g_a_positionHandle, 2, GLES20.GL_FLOAT, false, 0, mGLPosBuffer);
         GLES20.glEnableVertexAttribArray(g_a_positionHandle);
-
         GLES20.glVertexAttribPointer(g_a_colorHandle, 4, GLES20.GL_FLOAT, false, 0, mGLColBuffer);
         GLES20.glEnableVertexAttribArray(g_a_colorHandle);
-
         GLES20.glVertexAttribPointer(g_a_pointSizeHandle, 1, GLES20.GL_FLOAT, false, 0, mGLSize);
         GLES20.glEnableVertexAttribArray(g_a_pointSizeHandle);
-
         // Blend particles
         GLES20.glEnable(GLES20.GL_BLEND);
         GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE);

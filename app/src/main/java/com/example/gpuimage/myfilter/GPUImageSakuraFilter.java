@@ -52,8 +52,16 @@ public class GPUImageSakuraFilter extends MyGPUImageFilter{
             "void main()\n" +
             "{\n" +
             "    float mid = 0.5;\n" +
-            "    vec2 rotated = vec2(cos(v_Rotation) * (gl_PointCoord.x - mid) + sin(v_Rotation) * (gl_PointCoord.y - mid) + mid,\n" +
-            "                        cos(v_Rotation) * (gl_PointCoord.y - mid) - sin(v_Rotation) * (gl_PointCoord.x - mid) + mid);\n" +
+            "    vec2 rotated = vec2(cos(v_Rotation) * (gl_PointCoord.x - mid) - sin(v_Rotation) * (gl_PointCoord.y - mid) + mid,\n" +
+            "                        cos(v_Rotation) * (gl_PointCoord.y - mid) + sin(v_Rotation) * (gl_PointCoord.x - mid) + mid);\n" +
+            "if(rotated.x>1.0)" +
+            "   rotated.x=1.0;" +
+            "if(rotated.x<0.0)" +
+            "   rotated.x=0.0;"+
+            "if(rotated.y<0.0)" +
+            "   rotated.y=0.0;"+
+            "if(rotated.y>1.0)" +
+            "   rotated.y=1.0;"+
             "    gl_FragColor =  v_color * texture2D( u_texture0, rotated);\n" +
             "}\n";
     private static final float INIT_SIZE =80F ;
@@ -153,7 +161,7 @@ public class GPUImageSakuraFilter extends MyGPUImageFilter{
             g_col[i * 4 + 3] = 1f;
             g_size[i] =nextFloat(20,60);
             liveTime[i]=3;
-            g_rotation[i]=0;
+            g_rotation[i]= 0;
             alpha[i]=1;
 
             isClockWise[i]=mRandom.nextBoolean();
@@ -250,7 +258,7 @@ public class GPUImageSakuraFilter extends MyGPUImageFilter{
             }
 
                 //alpha
-            if(liveTime[i]<0)
+            if(g_rotation[i]>Math.toRadians(360)||g_rotation[i]<Math.toRadians(-360)||liveTime[i]<0)
                 for(int z=0;z<4;z++)
                 g_col[i * 4 + z]-=ALPHA_CHANGE_SPEED;
 
@@ -263,11 +271,11 @@ public class GPUImageSakuraFilter extends MyGPUImageFilter{
                     angle=Math.PI-angle;
             if(isClockWise[i]){
                 angle+=move_speed[i]*elapsed;
-//                g_rotation[i]+=Math.toRadians(1);
+                g_rotation[i]+=Math.toRadians(0.5);
             }
             else{
                 angle-=move_speed[i]*elapsed;
-//                g_rotation[i]-=Math.toRadians(1);
+                g_rotation[i]-=Math.toRadians(0.5);
             }
 
             float new_x= (float) (g_ratio[i]*Math.cos(angle));
@@ -287,6 +295,7 @@ public class GPUImageSakuraFilter extends MyGPUImageFilter{
                     g_col[i * 4 + z]=1;
                 liveTime[i]=3;
                 texture[i]= mTexttureStyle[mRandom.nextInt(TEXTURE_NUM)];
+                g_rotation[i]=0;
             }
         }
 
@@ -331,6 +340,7 @@ public class GPUImageSakuraFilter extends MyGPUImageFilter{
 
         GLES20.glEnable(GLES20.GL_BLEND);
         GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+
 
 
         if (mUsingStarTextureId != OpenGlUtils.NO_TEXTURE) {

@@ -245,8 +245,13 @@ public class GPUImageMusicFilter extends MyGPUImageFilter{
             }
 
                 //alpha
-            if(liveTime[i]<0)
+            if(liveTime[i]<0){
+                g_col[i * 4 + 0]-=ALPHA_CHANGE_SPEED;
+                g_col[i * 4 + 1]-=ALPHA_CHANGE_SPEED;
+                g_col[i * 4 + 2]-=ALPHA_CHANGE_SPEED;
                 g_col[i * 4 + 3]-=ALPHA_CHANGE_SPEED;
+            }
+
 
             //优化后
             double angle=Math.asin(g_pos[i * 2 + 1]/ g_ratio[i]);
@@ -257,11 +262,11 @@ public class GPUImageMusicFilter extends MyGPUImageFilter{
                     angle=Math.PI-angle;
             if(isClockWise[i]){
                 angle+=move_speed[i]*elapsed;
-//                g_rotation[i]+=Math.toRadians(1);
+                g_rotation[i]+=Math.toRadians(2);
             }
             else{
                 angle-=move_speed[i]*elapsed;
-//                g_rotation[i]-=Math.toRadians(1);
+                g_rotation[i]-=Math.toRadians(2);
             }
 
             float new_x= (float) (g_ratio[i]*Math.cos(angle));
@@ -271,13 +276,17 @@ public class GPUImageMusicFilter extends MyGPUImageFilter{
             liveTime[i]-=nextFloat(0.001f,0.008f);
 
             //size
-            g_size[i]-=SIZE_CHANGE_SPEED;
+//            g_size[i]-=SIZE_CHANGE_SPEED;
             if(g_col[i*4+3]<0f||g_pos[i*2]<-ViewMaxX||g_pos[i*2]>ViewMaxX||g_pos[i*2+1]<-ViewMaxY||g_pos[i*2+1]>ViewMaxY||g_size[i]<=10f)
             {
                 getCoordinate(i);
                 g_ratio[i]= (float) Math.sqrt(g_pos[i * 2 + 0]* g_pos[i * 2 + 0]+ g_pos[i * 2 + 1]* g_pos[i * 2 + 1]);
                 g_size[i] =nextFloat(40,100);
                 g_col[i * 4 + 3]=1f;
+                g_col[i * 4 + 2]=1f;
+                g_col[i * 4 + 1]=1f;
+                g_col[i * 4 + 0]=1f;
+
                 liveTime[i]=2;
                 texture[i]= mTexttureStyle[mRandom.nextInt(TEXTURE_NUM)];
             }
@@ -322,7 +331,8 @@ public class GPUImageMusicFilter extends MyGPUImageFilter{
 
         // Blend particles
         GLES20.glEnable(GLES20.GL_BLEND);
-        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+//        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+        GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA);
 
         if (mUsingStarTextureId != OpenGlUtils.NO_TEXTURE) {
             GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
